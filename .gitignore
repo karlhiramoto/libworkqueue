@@ -52,6 +52,9 @@ GRTAGS
 GSYMS
 GTAGS
 
+#kdevelop files
+libworkqueue.kdevelop*
+
 *.orig
 *~
 \#*#
