@@ -6,10 +6,10 @@ FLAGS= -C
 lib: lib/libworkqueue.a
 	$(MAKE) $(FLAGS) lib/ $(MAKEFLAGS)
 
-examples/simple_test: lib/libworkqueue.a
+examples/periodic_test examples/simple_test: lib/libworkqueue.a
 	$(MAKE) $(FLAGS) examples/ $(MAKEFLAGS)
 
-examples: examples/simple_test
+examples: examples/simple_test examples/periodic_test
 	
 
 
