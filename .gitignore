@@ -53,7 +53,9 @@ GSYMS
 GTAGS
 
 #kdevelop files
-libworkqueue.kdevelop*
+libworkqueue.kde*
+
+Doxyfile
 
 *.orig
 *~
