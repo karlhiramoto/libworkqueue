@@ -35,6 +35,28 @@
 tags
 TAGS
 
+#automake and autoconf generated files
+config.*
+Makefile.in
+Makefile
+aclocal.m4
+autom4te.cache/
+compile
+configure
+depcomp
+install-sh
+lib/libworkqueue.la
+lib/workqueue.lo
+libtool
+libworkqueue-config.h
+libworkqueue-config.h.in
+ltmain.sh
+missing
+stamp-h1
+
+
+example_progs
+
 # stgit generated dirs
 patches-*
 

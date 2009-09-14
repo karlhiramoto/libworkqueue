@@ -4,7 +4,7 @@ WORKQUEUE_CFLAGS = -pthread -g3 -I../lib
 WORKQUEUE_LDLAGS = -pthread -lrt -lworkqueue -L../lib
 
 noinst_bin_PROGRAMS = simple_test periodic_test serial_port_test
-noinst_bindir = .
+noinst_bindir = $(abs_top_builddir)/example_progs
 
 simple_test_SOURCES = simple_test.c
 simple_test_CFLAGS = $(AM_CFLAGS) $(WORKQUEUE_CFLAGS)

@@ -12,6 +12,8 @@ Possible applications of this library is prioritizing, queueing, and/or scheduli
 	* a cron job scheduler
 
 To compile library:
+	./autogen.sh
+	./configure
 	make
 
 To compile examples:
