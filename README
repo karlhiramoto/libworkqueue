@@ -19,4 +19,5 @@ To compile library:
 To compile examples:
 	make examples
 
-
+To install:
+	make install
