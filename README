@@ -10,3 +10,11 @@ Possible applications of this library is prioritizing, queueing, and/or scheduli
 	* A software watchdog to check that your system is OK.    
 	* A periodic check of network I/O
 	* a cron job scheduler
+
+To compile library:
+	make
+
+To compile examples:
+	make examples
+
+
