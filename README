@@ -1,0 +1,12 @@
+* libWorkQueue
+
+This library is a priority work queue scheduler.
+
+Possible applications of this library is prioritizing, queueing, and/or scheduling:
+
+ * A synchronous database API 
+ * Hardware I/O to a device where commands must be queued. 
+ * Periodic work that must be scheduled every X period for example:    
+	* A software watchdog to check that your system is OK.    
+	* A periodic check of network I/O
+	* a cron job scheduler
