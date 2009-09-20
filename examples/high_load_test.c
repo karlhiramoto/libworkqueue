@@ -40,18 +40,17 @@ int main(int argc, char *argv[]) {
 	int num_jobs=512;
 	int ret;
 	printf("starting\n");
-	prg.ctx = workqueue_init(512, 32);
+	prg.ctx = workqueue_init(512	, 32);
 
 	for (i = 0; i < num_jobs; i++) {
 		ret = workqueue_add_work(prg.ctx, 2, 0,
 			callback_func, &prg);
 
 		if (ret >= 0) {
-// 			printf("Added job %d \n", ret);
+			/* Added job ok */
 		} else if (ret == -EBUSY){
-			printf("busy\n");
+			printf("busy adding work %d of %d\n", i, num_jobs);
 			sleep(1);
-			
 		} else {
 			printf("Error adding job err=%d\n", ret);
 			workqueue_show_status(prg.ctx, stdout);
@@ -62,13 +61,11 @@ int main(int argc, char *argv[]) {
 		ret = workqueue_add_work(prg.ctx, 5, 0,
 			callback_func, &prg);
 
-
 		if (ret >= 0) {
-// 			printf("Added job %d \n", ret);
+			/* Added job ok */
 		} else if (ret == -EBUSY){
-			printf("busy\n");
+			printf("busy adding work %d of %d\n", i, num_jobs);
 			sleep(1);
-			
 		} else {
 			printf("Error adding job err=%d\n", ret);
 			workqueue_show_status(prg.ctx, stdout);
@@ -81,11 +78,10 @@ int main(int argc, char *argv[]) {
 			callback_func, &prg);
 
 		if (ret >= 0) {
-// 			printf("Added job %d \n", ret);
+			/* Added job ok */
 		} else if (ret == -EBUSY){
-			printf("busy\n");
+			printf("busy adding work %d of %d\n", i, num_jobs);
 			sleep(1);
-			
 		} else {
 			printf("Error adding job err=%d\n", ret);
 			workqueue_show_status(prg.ctx, stdout);
