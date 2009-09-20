@@ -28,6 +28,7 @@
 *.lzma
 *.patch
 *.gcno
+*.bak
 
 #
 # Top-level generic files

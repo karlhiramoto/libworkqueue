@@ -28,35 +28,50 @@
 
 #define ERROR_MSG(fmt, s...) { fprintf(stderr, "%s:%d " fmt, __FUNCTION__,__LINE__, ## s); }
 
+/**
+* @struct workqueue_job
+* @brief Every scheduled or running job has a instance of this struct
+* @brief This data is private to the library
+*/
 struct workqueue_job
 {
-	int priority;
-	unsigned int job_id;
-	struct timespec start_time;
-	workqueue_func_t func;
-	void * data;
+	int priority; /** Job priority.  Lower number is higher priority as on all UNIX OS's */
+	unsigned int job_id; /** Job ID 1st job is 1 then goes up */
+	struct timespec start_time; /** Time the job was started */
+	workqueue_func_t func; /** Callback function pointer*/
+	void * data; /** Data to pass to callback pointer */
 };
 
+/**
+* @struct workqueue_thread
+* @brief Every worker thread has an instance of this struct.
+* @brief This data is private to the library.
+*/
 struct workqueue_thread
 {
-  	pthread_mutex_t mutex; /* used to lock this struct and thread*/
-	pthread_t thread_id;   /* ID returned by pthread_create() */
-	int       thread_num;  /* Application-defined thread # */
-	bool      keep_running; /* while true schedule next job */
-	struct workqueue_ctx *ctx; /* parent context*/
+  	pthread_mutex_t mutex; /** used to lock this struct and thread*/
+	pthread_t thread_id;   /** ID returned by pthread_create() */
+	int       thread_num;  /** Application-defined thread # */
+	bool      keep_running; /** while true schedule next job */
+	struct workqueue_ctx *ctx; /** parent context*/
 };
+
+/**
+* @struct workqueue_ctx
+* @brief This the the context of the library. Multiple contexts are permited.
+* @brief This data is private to the library.
+*/
 
 struct workqueue_ctx
 {
-	pthread_mutex_t mutex; /* used to lock this  struct */
-	pthread_cond_t work_ready_cond;
-	int num_worker_threads;
-	int job_count; /* starts at 0 and goes to 2^31 then back to 0 */
-	int queue_size;
-	int waiting_jobs;
-	
-	struct workqueue_thread **thread; /* array of num_worker_threads */
-	struct workqueue_job **queue; /* array of queue_size */
+	pthread_mutex_t mutex; /** used to lock this  struct */
+	pthread_cond_t work_ready_cond; /** used to signal waiting threads that new work is ready */
+	int num_worker_threads; /** Number of worker threads this context has */
+	int job_count; /** starts at 0 and goes to 2^31 then back to 0 */
+	int queue_size; /** max number of jobs that can be queued */
+	int waiting_jobs; /** current number of jobs in queue */
+	struct workqueue_thread **thread; /** array of num_worker_threads */
+	struct workqueue_job **queue; /** array of queue_size */
 };
 
 

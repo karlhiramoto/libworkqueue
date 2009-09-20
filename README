@@ -21,3 +21,6 @@ To compile examples:
 
 To install:
 	make install
+
+To build doxygen documentation graphvis is required:
+	make doxygen-doc
