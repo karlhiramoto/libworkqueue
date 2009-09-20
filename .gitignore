@@ -78,8 +78,6 @@ GTAGS
 #kdevelop files
 libworkqueue.kde*
 
-Doxyfile
-
 *.orig
 *~
 \#*#
