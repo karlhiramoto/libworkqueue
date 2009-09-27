@@ -77,7 +77,7 @@
 
 
 #define TIME_SEC(x) x.tv_sec
-#define TIME_SEC(x) x.tv_sec
+#define TIME_SECP(x) x->tv_sec
 #define TIME_MSEC(x) (x.tv_nsec * 1000000)
 #define TIME_MSECP(x) (x->tv_nsec * 1000000)
 
