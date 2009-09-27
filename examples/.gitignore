@@ -1,7 +1,6 @@
 #generated files
 
-high_load_test
-periodic_test
-simple_test
-serial_port_test
-examples.done
+high_load_test/high_load_test
+periodic_test/periodic_test
+serial_port_test/serial_port_test
+simple_test/simple_test

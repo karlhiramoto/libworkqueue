@@ -9,21 +9,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-
-#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
-
-#if !defined(WINDOWS)
-#define WINDOWS
-#endif
-
-#pragma once
-#include "windows.h"            // big fat windows lib
-#define sleep(x) Sleep(x*1000)
-#else
 #include <unistd.h>
-#endif
-
+#include <string.h>
 #include "workqueue.h"
 
 
@@ -33,8 +20,7 @@ struct prg_ctx
 	int counter;
 };
 
-
-static void callback_func(void *data)
+void callback_func(void *data)
 {
 	struct prg_ctx *prg = (struct prg_ctx *) data;
 	int ret;
@@ -59,12 +45,11 @@ static void callback_func(void *data)
 }
 
 int main(int argc, char *argv[]) {
-	struct prg_ctx prg;
+	struct prg_ctx prg = { .counter = 0};
 	int i;
 	int num_jobs=5;
 	int ret;
 	printf("starting\n");
-	prg.counter = 0;
 	prg.ctx = workqueue_init(32, 1);
 
 	for (i = 0; i < num_jobs; i++) {
@@ -110,8 +95,5 @@ int main(int argc, char *argv[]) {
 
 	workqueue_destroy(prg.ctx);
 
-#ifdef WINDOWS
-	system("pause");
-#endif
 	return 0;
 }

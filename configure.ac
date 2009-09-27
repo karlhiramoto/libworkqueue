@@ -34,8 +34,12 @@ AC_CHECK_HEADERS([string])
 
 
 AC_CONFIG_FILES([Makefile
-                 lib/Makefile
-                 examples/Makefile
+		lib/Makefile
+		examples/Makefile
+		examples/periodic_test/Makefile
+		examples/simple_test/Makefile
+		examples/high_load_test/Makefile
+		examples/serial_port_test/Makefile
 		])
 
 
