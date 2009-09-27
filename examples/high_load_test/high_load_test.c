@@ -9,9 +9,27 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
 #include <string.h>
+#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+
+#if !defined(WINDOWS)
+#define WINDOWS
+#endif
+
+#pragma once
+#include "windows.h"            // big fat windows lib
+
+#define ENOMEM ERROR_NOT_ENOUGH_MEMORY
+#define EBUSY ERROR_BUSY
+
+
+#define sleep(x) Sleep(x*1000)
+#else
+#include <unistd.h>
+#include <errno.h>
+
+#endif
+
 #include "workqueue.h"
 
 
@@ -35,11 +53,12 @@ void callback_func(void *data)
 }
 
 int main(int argc, char *argv[]) {
-	struct prg_ctx prg = { .counter = 0};
+	struct prg_ctx prg;
 	int i;
 	int num_jobs=512;
 	int ret;
 	printf("starting\n");
+	prg.counter = 0;
 	prg.ctx = workqueue_init(512	, 32);
 
 	for (i = 0; i < num_jobs; i++) {
@@ -96,5 +115,8 @@ int main(int argc, char *argv[]) {
 	
 	workqueue_destroy(prg.ctx);
 	printf("count =%d \n", prg.counter);
+	#ifdef WINDOWS
+	system("pause");
+	#endif
 	return 0;
 }

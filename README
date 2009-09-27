@@ -24,3 +24,6 @@ To install:
 
 To build doxygen documentation graphvis is required:
 	make doxygen-doc
+
+* MS windows 
+	Tested on Windows XP SP3 with MS Visual C++ 2008 Express Edition.  Load solution libworkqueue.sln

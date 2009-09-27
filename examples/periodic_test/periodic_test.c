@@ -10,8 +10,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+
+#if !defined(WINDOWS)
+#define WINDOWS
+#endif
+
+#pragma once
+#include "windows.h"            // big fat windows lib
+#define sleep(x) Sleep(x*1000)
+#else
+#include <unistd.h>
+#endif
+
 #include "workqueue.h"
 
 static struct workqueue_ctx *ctx;
@@ -60,5 +72,8 @@ int main(int argc, char *argv[]) {
 
 	workqueue_destroy(ctx);
 
+	#ifdef WINDOWS
+	system("pause");
+	#endif
 	return 0;
 }
