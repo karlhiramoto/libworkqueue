@@ -1,2 +1,12 @@
-Verion 0.1:
-	First working tag/release
+Version 0.3
+	* Initial support for Win32 tested on Win XP SP3
+
+Version 0.2:
+	* Improve Documentation using DoxyGen
+	* Change to autotools based build system
+	* Serial port queueing test
+	* High Load test
+	* Fix warnings
+
+Version 0.1:
+	* First working tag/release
