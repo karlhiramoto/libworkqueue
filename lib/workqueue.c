@@ -7,7 +7,7 @@
 * Copyright 2009 Karl Hiramoto
 */
 
-//#define DEBUG
+#define DEBUG
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -78,8 +78,8 @@
 
 #define TIME_SEC(x) x.tv_sec
 #define TIME_SECP(x) x->tv_sec
-#define TIME_MSEC(x) (x.tv_nsec * 1000000)
-#define TIME_MSECP(x) (x->tv_nsec * 1000000)
+#define TIME_MSEC(x) (x.tv_nsec / 1000000)
+#define TIME_MSECP(x) (x->tv_nsec / 1000000)
 
 #endif
 
@@ -120,6 +120,7 @@ struct workqueue_thread
 	int       thread_num;  /** Application-defined thread # */
 	bool      keep_running; /** while true schedule next job */
 	struct workqueue_ctx *ctx; /** parent context*/
+	struct workqueue_job *job; /** Currently running job or NULL if no job*/
 };
 
 /**
@@ -273,8 +274,8 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 				/* next job in the queue is not scheduled to be run yet */
 				*wait_time = ctx->queue[i]->start_time;
 				*wait_ms = time_diff_ms(wait_time, &now);
-				DEBUG_MSG("waiting %d ms\n", *wait_ms);
-				DEBUG_MSG("set wait to %u.%03u for job %d\n",
+				DEBUG_MSG("waiting %lld ms\n", *wait_ms);
+				DEBUG_MSG("set wait to %u.%03lu for job %d\n",
 					(unsigned int) TIME_SECP(wait_time), TIME_MSECP(wait_time), ctx->queue[i]->job_id);
 			} else {
 				DEBUG_MSG("no other job\n", NULL);
@@ -282,7 +283,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 		}
 	}
 	UNLOCK_MUTEX(&ctx->mutex);
-	return job;
+	return job;	
 }
 
 // return number of jobs waiting in queue
@@ -297,7 +298,6 @@ int workqueue_get_queue_len(struct workqueue_ctx* ctx)
 static void * _workqueue_job_scheduler(void *data)
 {
   	struct workqueue_thread *thread = (struct workqueue_thread *) data;
-	struct workqueue_job *job = NULL;
 	struct workqueue_ctx *ctx;
 	struct TIME_STRUCT_TYPE wait_time;
 	int ret;
@@ -309,20 +309,23 @@ static void * _workqueue_job_scheduler(void *data)
 	
 	while (thread->keep_running) {
 
-		job = _workqueue_get_job(thread, &wait_time, &wait_ms);
-		if (job) {
-		  	/* there is work to do */
-		  	DEBUG_MSG("launching job %d\n",job->job_id);
-			job->func(job->data); /* launch worker job */
-			DEBUG_MSG("job %d finished\n",job->job_id);
-			free(job);
+		thread->job = _workqueue_get_job(thread, &wait_time, &wait_ms);
+		if (thread->job) {
+			/* there is work to do */
+			DEBUG_MSG("launching job %d\n",thread->job->job_id);
+			thread->job->func(thread->job->data); /* launch worker job */
+			DEBUG_MSG("job %d finished\n", thread->job->job_id);
+			LOCK_MUTEX(&thread->mutex);
+			/* done with job free it */
+			free(thread->job);
+			thread->job = NULL;
+			UNLOCK_MUTEX(&thread->mutex);
 		} else {
-		  	/* we should idle */
+			/* must be locked for pthread_cond_timedwait */
+			LOCK_MUTEX(&thread->mutex);
+
+			/* we should idle */
 			DEBUG_MSG("thread %d going idle\n",thread->thread_num);
-
-		  	LOCK_MUTEX(&thread->mutex); /* must be locked for pthread_cond_timedwait */
-			DEBUG_MSG("thread %d waiting\n",thread->thread_num);
-
 #ifdef WINDOWS
 			ret = WaitForSingleObject(&ctx->work_ready_cond, (DWORD) wait_ms);
 
@@ -348,6 +351,7 @@ static void * _workqueue_job_scheduler(void *data)
 			  	DEBUG_MSG("thread %d idle timeout\n",thread->thread_num);
 			  	continue; /* wait again */
 			} else if (ret) {
+				ERROR_MSG("pthread_cond_timedwait ret =%d\n", ret);
 				perror("Error waiting for thread condition");
 				continue;
 			}
@@ -518,7 +522,7 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 	/* get current time time*/
 	GET_TIME(sched_time);
 
-	LOCK_MUTEX(&ctx->mutex); // LOCK
+	LOCK_MUTEX(&ctx->mutex);
 
 	for (i = 0; i < ctx->queue_size; i++) {
 		if (ctx->queue[i])
@@ -604,3 +608,73 @@ int workqueue_show_status(struct workqueue_ctx* ctx, FILE *fp)
 	return 0;
 }
 
+static int _is_job_queued(struct workqueue_ctx* ctx, int job_id)
+{
+	int i;
+
+	if(ctx->queue) {
+		for (i = 0; i < ctx->queue_size; i++) {
+			if (ctx->queue[i] && ctx->queue[i]->job_id == job_id);
+				return 1;
+		}
+	}
+	return 0;
+}
+
+static int _is_job_running(struct workqueue_ctx* ctx, int job_id)
+{
+	int i;
+	int ret = 0;
+	for (i = 0; i < ctx->num_worker_threads && !ret; i++) {
+		if (ctx->thread[i]) {
+			LOCK_MUTEX(&ctx->thread[i]->mutex);
+			if (ctx->thread[i]->job && ctx->thread[i]->job->job_id == job_id) {
+				ret = 1;
+			}
+			UNLOCK_MUTEX(&ctx->thread[i]->mutex);
+		}
+	}
+
+	return ret;
+}
+
+int workqueue_job_queued(struct workqueue_ctx* ctx, int job_id)
+{
+	int ret;
+
+	if (!ctx)
+		return -1;
+
+	LOCK_MUTEX(&ctx->mutex);
+	ret = _is_job_queued(ctx, job_id);
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}
+
+int workqueue_job_running(struct workqueue_ctx* ctx, int job_id)
+{
+	int ret;
+
+	if (!ctx)
+		return -1;
+
+	LOCK_MUTEX(&ctx->mutex);
+	ret = _is_job_running(ctx, job_id);
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}
+
+int workqueue_job_queued_or_running(struct workqueue_ctx* ctx, int job_id)
+{
+	int ret;
+
+	if (!ctx)
+		return -1;
+
+	LOCK_MUTEX(&ctx->mutex);
+	ret = _is_job_queued(ctx, job_id);
+	if (!ret)
+		ret = _is_job_running(ctx, job_id);
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}

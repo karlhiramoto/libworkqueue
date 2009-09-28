@@ -65,6 +65,9 @@ patches-*
 patches
 series
 
+#ignore generate doc files for now
+doc/
+
 # cscope files
 cscope.*
 ncscope.*

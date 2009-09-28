@@ -64,6 +64,30 @@ int workqueue_show_status(struct workqueue_ctx* ctx, FILE *fp);
  */
 int workqueue_get_queue_len(struct workqueue_ctx* ctx);
 
+/**
+ * @fn workqueue_job_queued
+ * @brief Check if job is currently queued
+ * @param workqueue_ctx  context
+ * @returns 1 if Job is queued. 0 if not queued. or -error number.
+ */
+int workqueue_job_queued(struct workqueue_ctx* ctx, int job_id);
+
+/**
+ * @fn workqueue_job_running
+ * @brief Check if job is running
+ * @param workqueue_ctx  context
+ * @returns 1 if Job is running. 0 if not running. or -error number.
+ */
+int workqueue_job_running(struct workqueue_ctx* ctx, int job_id);
+
+/**
+ * @fn workqueue_job_queued_or_running
+ * @brief Check if job is queued or running
+ * @param workqueue_ctx  context
+ * @returns 1 if Job is running or in queue. 0 if not running or in queue. or -error number.
+ */
+
+int workqueue_job_queued_or_running(struct workqueue_ctx* ctx, int job_id);
 
 /**
  * @fn workqueue_destroy

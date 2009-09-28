@@ -61,7 +61,7 @@ static void callback_func(void *data)
 int main(int argc, char *argv[]) {
 	struct prg_ctx prg;
 	int i;
-	int num_jobs=5;
+	int num_jobs=6;
 	int ret;
 	printf("starting\n");
 	prg.counter = 0;
@@ -78,6 +78,13 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	workqueue_show_status(prg.ctx, stdout);
+
+	for (i = 0; i < num_jobs; i++) {
+		printf("job %d is queued=%d running=%d queued_or_running=%d\n", i,
+			workqueue_job_queued(prg.ctx, i),
+			workqueue_job_running(prg.ctx, i),
+			workqueue_job_queued_or_running(prg.ctx, i));
+	}
 
 	for (i = 0; i < num_jobs/2; i++) {
 		ret = workqueue_add_work(prg.ctx, 5, 0,
