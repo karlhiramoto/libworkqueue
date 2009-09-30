@@ -62,6 +62,8 @@
 #include <pthread.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <signal.h>
 
 #ifdef DEBUG
 #define DEBUG_MSG(fmt, s...) { printf("%s:%d " fmt, __FUNCTION__,__LINE__, ## s); }
@@ -253,8 +255,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 	assert(ctx);
 	LOCK_MUTEX(&ctx->mutex);
 	assert(ctx->queue);
- 	
-	
+
 	for(i = 0; thread->keep_running && i < ctx->queue_size; i++) {
 	  	// TODO check sheduled time
 		if (ctx->queue[i]) {
@@ -614,7 +615,7 @@ static int _is_job_queued(struct workqueue_ctx* ctx, int job_id)
 
 	if(ctx->queue) {
 		for (i = 0; i < ctx->queue_size; i++) {
-			if (ctx->queue[i] && ctx->queue[i]->job_id == job_id);
+			if (ctx->queue[i] && ctx->queue[i]->job_id == job_id)
 				return 1;
 		}
 	}
@@ -675,6 +676,103 @@ int workqueue_job_queued_or_running(struct workqueue_ctx* ctx, int job_id)
 	ret = _is_job_queued(ctx, job_id);
 	if (!ret)
 		ret = _is_job_running(ctx, job_id);
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}
+
+/* private function. NOTE ctx must be locked by caller to avoid race with other dequeue*/
+static int _dequeue(struct workqueue_ctx* ctx, int job_id)
+{
+	int i;
+
+	if(ctx->queue) {
+		for (i = 0; i < ctx->queue_size; i++) {
+			if (ctx->queue[i] && ctx->queue[i]->job_id == job_id) {
+				free(ctx->queue[i]);
+				ctx->queue[i] = NULL;
+				ctx->waiting_jobs--;
+				return 0;
+			}
+		}
+	}
+	return -ENOENT;
+}
+
+#if 0  /* This probally can't be reliably done.  At best we could send a signal */
+static int _kill_job(struct workqueue_ctx* ctx, int job_id)
+{
+	int i;
+	int ret = -ENOENT;
+
+	for (i = 0; i < ctx->num_worker_threads; i++) {
+		if (ctx->thread[i]) {
+			LOCK_MUTEX(&ctx->thread[i]->mutex);
+			if (ctx->thread[i]->job && ctx->thread[i]->job->job_id == job_id) {
+				/* FOUND*/
+#ifdef WINDOWS
+			TerminateThread(thread->thread_id, 0);
+
+			thread->thread_id = CreateThread( 
+				NULL,       // default security attributes
+				0,          // default stack size
+				(LPTHREAD_START_ROUTINE) _workqueue_job_scheduler,
+				thread,       // data passed to thread
+				0,          // default creation flags
+				NULL); // receive thread identifier
+
+#else /*POSIX */
+				if ( (ret = pthread_kill(ctx->thread[i]->thread_id , SIGTERM)) )
+					ERROR_MSG("pthread_kill err = %d\n,", ret);
+
+				/* recreate worker thread */
+				pthread_create(&ctx->thread[i]->thread_id, NULL,
+					_workqueue_job_scheduler, ctx->thread[i]);
+#endif
+
+				UNLOCK_MUTEX(&ctx->thread[i]->mutex);
+				return 0;
+			}
+			UNLOCK_MUTEX(&ctx->thread[i]->mutex);
+		}
+	}
+
+
+	return -ENOENT;
+}
+
+int workqueue_kill(struct workqueue_ctx* ctx, int job_id)
+{
+	int ret;
+	LOCK_MUTEX(&ctx->mutex);
+
+	ret = _kill_job(ctx, job_id);
+
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}
+
+int workqueue_cancel(struct workqueue_ctx* ctx, int job_id)
+{
+
+	int ret;
+	LOCK_MUTEX(&ctx->mutex);
+	ret = _dequeue(ctx, job_id);
+
+	if (ret == -ENOENT)  {
+		/* kill any running thread that has this job id */
+		ret = _kill_job(ctx, job_id);
+	}
+	UNLOCK_MUTEX(&ctx->mutex);
+	return ret;
+}
+#endif
+
+int workqueue_dequeue(struct workqueue_ctx* ctx, int job_id)
+{
+	int ret;
+	LOCK_MUTEX(&ctx->mutex);
+	ret = _dequeue(ctx, job_id);
+
 	UNLOCK_MUTEX(&ctx->mutex);
 	return ret;
 }

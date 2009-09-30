@@ -89,6 +89,16 @@ int workqueue_job_running(struct workqueue_ctx* ctx, int job_id);
 
 int workqueue_job_queued_or_running(struct workqueue_ctx* ctx, int job_id);
 
+
+/**
+ * @fn workqueue_dequeue
+ * @brief If this job in queued but not yet running, dequeue it. cancel the work.
+ * @param workqueue_ctx  context
+ * @param job_id  ID returned from workqueue_add_work
+ * @returns 0 for OK or -error number.
+ */
+int workqueue_dequeue(struct workqueue_ctx* ctx, int job_id);
+
 /**
  * @fn workqueue_destroy
  * @brief free context, releases all memory.  Any jobs in queue are dequed.
