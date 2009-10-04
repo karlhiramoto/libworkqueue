@@ -36,6 +36,9 @@
 tags
 TAGS
 
+Debug
+Release
+
 #automake and autoconf generated files
 config.*
 Makefile.in
