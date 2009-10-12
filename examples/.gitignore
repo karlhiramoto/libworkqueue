@@ -4,4 +4,5 @@ high_load_test/high_load_test
 job_control/job_control
 periodic_test/periodic_test
 serial_port_test/serial_port_test
+simple_cpp/simple
 simple_test/simple_test

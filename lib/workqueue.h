@@ -110,6 +110,53 @@ void workqueue_destroy(struct workqueue_ctx *ctx);
 
 #ifdef  __cplusplus
 }
+
+/* C++ wrapper of C functions */
+class work_queue_class
+{
+	private:
+		struct workqueue_ctx *ctx;
+	public:
+		work_queue_class(unsigned int queue_size, unsigned int num_worker_threads) {
+			ctx = workqueue_init(queue_size, num_worker_threads);
+		}
+
+		~work_queue_class(void) {
+			workqueue_destroy(ctx);
+		}
+
+		int dequeue(int job_id) {
+			return workqueue_dequeue(ctx, job_id);
+		}
+
+		int add_work(int priority, unsigned int when_milisec,
+				workqueue_func_t callback_fn, void *data) {
+
+			return workqueue_add_work(ctx,
+				priority, when_milisec,	callback_fn, data);
+		}
+
+		int show_status(FILE *fp) {
+			return workqueue_show_status(ctx, fp);
+		}
+
+		int get_queue_len(void) {
+			return workqueue_get_queue_len(ctx);
+		}
+
+		int job_queued(int job_id) {
+			return workqueue_job_queued(ctx, job_id);
+		}
+
+		int job_running(int job_id) {
+			return workqueue_job_running(ctx, job_id);
+		}
+
+		int job_queued_or_running(int job_id) {
+			return workqueue_job_queued_or_running(ctx, job_id);
+		}
+};
+
 #endif /*cplusplus*/
 
 #endif /*WORKQUEUE_H */

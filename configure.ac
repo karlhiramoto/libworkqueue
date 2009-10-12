@@ -3,6 +3,7 @@ AC_INIT([libworkqueue priority workqueue scheduler], [0.1], [karl@hiramoto.org])
 
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
 
@@ -40,6 +41,7 @@ AC_CONFIG_FILES([Makefile
 		examples/job_control/Makefile
 		examples/serial_port_test/Makefile
 		examples/simple_test/Makefile
+		examples/simple_cpp/Makefile
 		examples/periodic_test/Makefile
 
 		])
