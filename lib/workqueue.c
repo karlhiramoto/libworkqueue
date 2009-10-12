@@ -111,10 +111,10 @@ struct workqueue_job
 */
 struct workqueue_thread
 {
-  	
+
 #ifdef WINDOWS
 	CRITICAL_SECTION  mutex;
-	HANDLE            thread_id;
+	HANDLE            thread_id; /* handle returned by CreateThread() */
 #else
 	pthread_mutex_t mutex; /** used to lock this struct and thread*/
 	pthread_t thread_id;   /** ID returned by pthread_create() */
@@ -134,11 +134,10 @@ struct workqueue_thread
 struct workqueue_ctx
 {
 #ifdef WINDOWS
-	CRITICAL_SECTION  mutex;
-//	CONDITION_VARIABLE work_ready_cond;
-	HANDLE work_ready_cond;
+	CRITICAL_SECTION  mutex; /** used to lock this struct */
+	HANDLE work_ready_cond; /** used to signal waiting threads that new work is ready */
 #else 
-	pthread_mutex_t mutex; /** used to lock this  struct */
+	pthread_mutex_t mutex; /** used to lock this struct */
 	pthread_cond_t work_ready_cond; /** used to signal waiting threads that new work is ready */
 #endif
 	int num_worker_threads; /** Number of worker threads this context has */
@@ -165,9 +164,9 @@ static int _time_gt (struct TIME_STRUCT_TYPE *x, struct TIME_STRUCT_TYPE *y)
 
 /**
  * @brief Compare function for qsort()
- * @param ptr1 
- * @param ptr2 
- * @return 
+ * @param ptr1 pointer to a workqueue_job
+ * @param ptr2 pointer to a workqueue_job
+ * @return 0 if jobs equal or both null. -1 if ptr1 < ptr2
  */
 static int job_compare(const void *ptr1, const void *ptr2)
 {
@@ -176,15 +175,15 @@ static int job_compare(const void *ptr1, const void *ptr2)
 	
 // 	DEBUG_MSG("p1=%p p2=%p \n", ptr1, ptr2);
 
+	/* dereference job pointers*/
 	j1 = (struct workqueue_job **) ptr1;
 	j2 = (struct workqueue_job **) ptr2;
-
-
 	job1 = *j1;
 	job2 = *j2;
 
 // 	DEBUG_MSG("job1=%p job2=%p \n", job1, job2);
-	
+
+	/* check for null pointers*/
 	if ( job1 == NULL && job2 == NULL)
 		return 0;
 	else if ( job1 == NULL)
@@ -208,6 +207,7 @@ static int job_compare(const void *ptr1, const void *ptr2)
 	else if (job1->start_time.tv_sec > job2->start_time.tv_sec)
 	  	return 1;
 
+	/* seconds must be equal so compare nanoseconds */
 	if (job1->start_time.tv_nsec < job2->start_time.tv_nsec)
 	  	return -1;
 	else if (job1->start_time.tv_nsec > job2->start_time.tv_nsec)
@@ -256,14 +256,17 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 	LOCK_MUTEX(&ctx->mutex);
 	assert(ctx->queue);
 
+	/* for each queued job item while keep_running */
 	for(i = 0; thread->keep_running && i < ctx->queue_size; i++) {
-	  	// TODO check sheduled time
+
+		/* if queue pointer not null there is a job in this slot */
 		if (ctx->queue[i]) {
 			DEBUG_MSG("job %d set wait=%u.%03lu start_time=%u.%03lu now=%u.%03lu\n", ctx->queue[i]->job_id,
 				(unsigned int) TIME_SECP(wait_time), TIME_MSECP(wait_time),
 				(unsigned int) TIME_SEC(ctx->queue[i]->start_time), TIME_MSEC(ctx->queue[i]->start_time),
 				(unsigned int) TIME_SEC(now), TIME_MSEC(now));
 
+			/* check scheduled time */
 			if (_time_gt(&now, &ctx->queue[i]->start_time))  {
 				/* job found that must start now */
 				job = ctx->queue[i];
@@ -273,6 +276,8 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 				break;
 			} else if (_time_gt(wait_time, &ctx->queue[i]->start_time)) {
 				/* next job in the queue is not scheduled to be run yet */
+
+				/* calculate time thread should sleep for */
 				*wait_time = ctx->queue[i]->start_time;
 				*wait_ms = time_diff_ms(wait_time, &now);
 				DEBUG_MSG("waiting %lld ms\n", *wait_ms);
@@ -290,7 +295,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 // return number of jobs waiting in queue
 int workqueue_get_queue_len(struct workqueue_ctx* ctx)
 {
-  	int ret;
+	int ret;
 	LOCK_MUTEX(&ctx->mutex);
 	ret = ctx->waiting_jobs;
 	UNLOCK_MUTEX(&ctx->mutex);
@@ -311,6 +316,8 @@ static void * _workqueue_job_scheduler(void *data)
 	while (thread->keep_running) {
 
 		thread->job = _workqueue_get_job(thread, &wait_time, &wait_ms);
+
+		/* is there a job that needs to be run now */
 		if (thread->job) {
 			/* there is work to do */
 			DEBUG_MSG("launching job %d\n",thread->job->job_id);
@@ -322,6 +329,8 @@ static void * _workqueue_job_scheduler(void *data)
 			thread->job = NULL;
 			UNLOCK_MUTEX(&thread->mutex);
 		} else {
+			/* wait until we are signaled that there is new work, or until the wait time is up */
+
 			/* must be locked for pthread_cond_timedwait */
 			LOCK_MUTEX(&thread->mutex);
 
@@ -338,9 +347,10 @@ static void * _workqueue_job_scheduler(void *data)
 
 			if (!thread->keep_running) {
 			  	DEBUG_MSG("thread %d stopping\n",thread->thread_num);
-			  	return NULL;
+				break;
 			}
 #ifdef WINDOWS
+			/* check windows error cases*/
 			if( !ret && WAIT_TIMEOUT == GetLastError()) {
 			  	DEBUG_MSG("thread %d idle timeout\n",thread->thread_num);
 			  	continue; /* wait again */
@@ -364,8 +374,10 @@ static void * _workqueue_job_scheduler(void *data)
 
 void workqueue_destroy(struct workqueue_ctx *ctx)
 {
-  	int i;
+	int i;
+
 	DEBUG_MSG("shutting down ctx=%p\n", ctx);
+	LOCK_MUTEX(&ctx->mutex);
 	if (ctx->thread) {
 		DEBUG_MSG("shutting down %d workers\n", ctx->num_worker_threads);
 		for (i = 0; i < ctx->num_worker_threads; i++) {
@@ -384,20 +396,14 @@ void workqueue_destroy(struct workqueue_ctx *ctx)
 		for (i = 0; i < ctx->num_worker_threads; i++) {
 			if (ctx->thread[i]) {
 			  	DEBUG_MSG("joining thread%d\n",ctx->thread[i]->thread_num);
-//#ifdef WINDOWS
-//				WaitForSingleObject(ctx->thread[i]->thread_id, 5000);
-//				CloseHandle (ctx->thread[i]->thread_id);
-
-//#else
 				pthread_join(ctx->thread[i]->thread_id, NULL);
-//#endif
-				
 			}
 		}
 
 		for (i = 0; i < ctx->num_worker_threads; i++) {
 			if (ctx->thread[i]) {
 				free(ctx->thread[i]);
+				ctx->thread[i] = NULL;
 			}
 		}
 		free(ctx->thread);
@@ -412,7 +418,15 @@ void workqueue_destroy(struct workqueue_ctx *ctx)
 			}
 		}
 		free(ctx->queue);
+		ctx->queue = NULL;
 	}
+	UNLOCK_MUTEX(&ctx->mutex);
+
+	#ifdef WINDOWS
+	//FIXME test this
+	#else
+	pthread_mutex_destroy(&ctx->mutex);
+	#endif
 
 	free(ctx);
 
