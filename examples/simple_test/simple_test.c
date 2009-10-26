@@ -110,10 +110,13 @@ int main(int argc, char *argv[]) {
 	}
 	workqueue_show_status(prg.ctx, stdout);
 
-	for (i = 20; i && (ret = workqueue_get_queue_len(prg.ctx)); i--) {
+	for (i = 20; i && (ret = workqueue_get_queue_len(prg.ctx)) > 5; i--) {
 	  	printf("waiting for %d jobs \n", ret);
 		sleep(1);
 	}
+
+	// empty out remaining jobs and wait for running job to finish
+	workqueue_empty_wait(prg.ctx);
 
 	workqueue_destroy(prg.ctx);
 

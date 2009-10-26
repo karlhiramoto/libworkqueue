@@ -108,6 +108,25 @@ int workqueue_dequeue(struct workqueue_ctx* ctx, int job_id);
  */
 void workqueue_destroy(struct workqueue_ctx *ctx);
 
+/**
+ * @fn workqueue_empty_wait
+ * @brief Empty and reset the queue.  Cancel all queued work
+ * @param workqueue_ctx  context to free
+ * @returns number of entries removed  or -errno
+ */
+int workqueue_empty(struct workqueue_ctx *ctx);
+
+/**
+ * @fn workqueue_empty_wait
+ * @brief Empty and reset the queue
+ * @brief Will wait for any currently running jobs to finish.
+ * @param workqueue_ctx  context to free
+ * @returns number of entries removed  or -errno
+ */
+int workqueue_empty_wait(struct workqueue_ctx *ctx);
+
+
+
 #ifdef  __cplusplus
 }
 
@@ -154,6 +173,14 @@ class work_queue_class
 
 		int job_queued_or_running(int job_id) {
 			return workqueue_job_queued_or_running(ctx, job_id);
+		}
+
+		int empty(void) {
+			return workqueue_empty(ctx);
+		}
+
+		int empty_wait(void) {
+			return workqueue_empty_wait(ctx);
 		}
 };
 
