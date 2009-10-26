@@ -39,8 +39,9 @@ void callback_func(void *data)
 	/* NOTE This kind of function to do polling every X ammount of time */
 
 	/* reschedule myself */
-	ret = workqueue_add_work(ctx, 2, 3000,
-		callback_func, counter);
+	if (*counter < 20)
+		ret = workqueue_add_work(ctx, 2, 3000,
+			callback_func, counter);
 
 	if (ret >= 0) {
 		printf("Added job %d \n", ret);
