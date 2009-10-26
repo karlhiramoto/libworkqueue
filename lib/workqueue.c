@@ -70,7 +70,7 @@
 #else
 #define DEBUG_MSG(fmt, s...)
 #endif
-#define ERROR_MSG(fmt, s...) { fprintf(stderr, "%s:%d " fmt, __FUNCTION__,__LINE__, ## s); }
+#define ERROR_MSG(fmt, s...) { fprintf(stderr, "ERROR %s:%d " fmt, __FUNCTION__,__LINE__, ## s); }
 
 #define GET_TIME(x) clock_gettime(CLOCK_REALTIME, &x)
 #define TIME_STRUCT_TYPE timespec
@@ -269,6 +269,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 
 		/* if queue pointer not null there is a job in this slot */
 		if (ctx->queue[i]) {
+
 			DEBUG_MSG("job %d set wait=%u.%03lu start_time=%u.%03lu now=%u.%03lu\n", ctx->queue[i]->job_id,
 				(unsigned int) TIME_SECP(wait_time), TIME_MSECP(wait_time),
 				(unsigned int) TIME_SEC(ctx->queue[i]->start_time), TIME_MSEC(ctx->queue[i]->start_time),
@@ -287,7 +288,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 
 				/* calculate time thread should sleep for */
 				*wait_time = ctx->queue[i]->start_time;
-				*wait_ms = time_diff_ms(wait_time, &now);
+				*wait_ms = time_diff_ms(&ctx->queue[i]->start_time, &now);
 				DEBUG_MSG("waiting %lld ms\n", *wait_ms);
 				DEBUG_MSG("set wait to %u.%03lu for job %d\n",
 					(unsigned int) TIME_SECP(wait_time), TIME_MSECP(wait_time), ctx->queue[i]->job_id);
@@ -296,7 +297,12 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 			}
 		}
 	}
-	DEBUG_MSG("thread %d unlocking ctx job=%p\n", thread->thread_num, job);
+
+
+	DEBUG_MSG("thread %d unlocking ctx job=%p wait=%u.%03lu\n",
+			thread->thread_num, job,
+			(unsigned int) TIME_SECP(wait_time), TIME_MSECP(wait_time));
+
 	UNLOCK_MUTEX(&ctx->mutex);
 	return job;
 }
@@ -310,6 +316,7 @@ int workqueue_get_queue_len(struct workqueue_ctx* ctx)
 	UNLOCK_MUTEX(&ctx->mutex);
 	return ret;
 }
+
 static void * _workqueue_job_scheduler(void *data)
 {
   	struct workqueue_thread *thread = (struct workqueue_thread *) data;
@@ -385,8 +392,7 @@ static void * _workqueue_job_scheduler(void *data)
 			  	DEBUG_MSG("thread %d idle timeout lock\n",thread->thread_num);
 			  	continue; /* wait again */
 			} else if (ret) {
-				ERROR_MSG("pthread_cond_timedwait ret =%d\n", ret);
-				perror("Error waiting for thread condition");
+				ERROR_MSG("thread %d pthread_cond_timedwait ret =%d\n", thread->thread_num, ret);
 				continue;
 			}
 #endif
