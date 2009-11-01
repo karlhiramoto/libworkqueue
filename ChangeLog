@@ -1,3 +1,9 @@
+Version 0.4
+	* New functions workqueue_empty() and workqueue_empty_wait()
+	  Will empty the Queue, and if wanted wait for any running job.
+	* Improve locking workqueue_destroy() to fix potenial race on 
+	  shutdown.
+
 Version 0.3
 	* Initial support for Win32 tested on Win XP SP3
 
