@@ -28,19 +28,32 @@
 
 static struct workqueue_ctx *ctx;
 
+static int dummy_job(int count)
+{
+	int i;
+	int ret;
+	for (i = 123456*count; i; i--) {
+		ret+=count;
+		ret *= i;
+	}
+	return ret;
+}
+
 void callback_func(void *data)
 {
 	int *counter = (int*) data;
-	int ret;
+	int ret = 0;
 	(*counter)++;
-	printf("counter=%d\n",*counter);
-	sleep(1);
 
+	if (*counter % 3)
+		ret = dummy_job(*counter);
+
+	printf("counter=%d job ret=%d\n",*counter, ret);
 	/* NOTE This kind of function to do polling every X ammount of time */
 
 	/* reschedule myself */
-	if (*counter < 20)
-		ret = workqueue_add_work(ctx, 2, 3000,
+	if (*counter < 80)
+		ret = workqueue_add_work(ctx, 2, 1678,
 			callback_func, counter);
 
 	if (ret >= 0) {
