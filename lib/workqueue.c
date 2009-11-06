@@ -76,7 +76,7 @@
 #define TIME_STRUCT_TYPE timespec
 // #define LOCK_MUTEX(mutex)  pthread_mutex_lock(mutex)
 // #define UNLOCK_MUTEX(x)	pthread_mutex_unlock(x)
-#define LOCK_MUTEX(mutex)  { DEBUG_MSG("LOCK " #mutex " get %s:%d\n" , __FUNCTION__,__LINE__); pthread_mutex_lock(mutex); DEBUG_MSG("LOCK " #mutex " got %s:%d \n" , __FUNCTION__,__LINE__); }
+#define LOCK_MUTEX(mutex)  { DEBUG_MSG("LOCKING " #mutex " get %s:%d\n" , __FUNCTION__,__LINE__); pthread_mutex_lock(mutex); DEBUG_MSG("LOCKED " #mutex " got %s:%d \n" , __FUNCTION__,__LINE__); }
 
 #define TRY_LOCK_MUTEX(mutex, r)  { DEBUG_MSG("TRYLOCK " #mutex " get %s:%d\n" , __FUNCTION__,__LINE__); r = pthread_mutex_trylock(mutex); DEBUG_MSG ("TRYLOCK " #mutex " got %s:%d r=%d \n" , __FUNCTION__,__LINE__,r); }
 
@@ -142,9 +142,11 @@ struct workqueue_ctx
 #ifdef WINDOWS
 	CRITICAL_SECTION  mutex; /** used to lock this struct */
 	HANDLE work_ready_cond; /** used to signal waiting threads that new work is ready */
-#else 
+	CRITICAL_SECTION  cond_mutex; /** lock condition. TODO NOT needed on windows? */
+#else
 	pthread_mutex_t mutex; /** used to lock this struct */
 	pthread_cond_t work_ready_cond; /** used to signal waiting threads that new work is ready */
+	pthread_mutex_t cond_mutex; /** used to lock condition variable*/
 #endif
 	int num_worker_threads; /** Number of worker threads this context has */
 	int job_count; /** starts at 0 and goes to 2^31 then back to 0 */
@@ -255,7 +257,7 @@ static struct workqueue_job*  _workqueue_get_job(struct workqueue_thread *thread
 	/* init default wait time*/
 	GET_TIME(now);
 	*wait_time = now;
-	TIME_SECP(wait_time) += 5;
+	TIME_SECP(wait_time) += 9999;  // if no work wait for 9999 sec
 	*wait_ms = 5000;
 
 	assert(ctx);
@@ -329,7 +331,7 @@ static void * _workqueue_job_scheduler(void *data)
 	ctx = thread->ctx;
 	DEBUG_MSG("thread %d starting\n",thread->thread_num);
 
-	// locking this ctx to be unlocked by pthread_cond_timedwait
+
 	LOCK_MUTEX(&thread->mutex);
 
 	while (thread->keep_running) {
@@ -351,28 +353,36 @@ static void * _workqueue_job_scheduler(void *data)
 			/* launch worker job */
 			thread->job->func(thread->job->data); 
 
-			UNLOCK_MUTEX(&thread->job_mutex);
-			LOCK_MUTEX(&thread->mutex);
-
 			DEBUG_MSG("job %d finished\n", thread->job->job_id);
 			/* done with job free it */
 			free(thread->job);
 			thread->job = NULL;
+
+			UNLOCK_MUTEX(&thread->job_mutex);
+			LOCK_MUTEX(&thread->mutex);
+
 		} else {
 			/* wait until we are signaled that there is new work, or until the wait time is up */
 
 
 			/* we should idle */
-			DEBUG_MSG("thread %d going idle\n",thread->thread_num);
-#ifdef WINDOWS
+
 			UNLOCK_MUTEX(&thread->mutex);
+
+#ifdef WINDOWS
+			DEBUG_MSG("thread %d going idle\n",thread->thread_num);
 			ret = WaitForSingleObject(&ctx->work_ready_cond, (DWORD) wait_ms);
-			LOCK_MUTEX(&thread->mutex);
+
 #else
+			DEBUG_MSG("thread %d going idle.  %d sec; %ld nsec\n",
+				thread->thread_num, wait_time.tv_sec, wait_time.tv_nsec);
 			// note this wait may be a long time, if the system time changes
-			ret = pthread_cond_timedwait(&ctx->work_ready_cond, &thread->mutex, &wait_time);
+			LOCK_MUTEX(&ctx->cond_mutex);
+			ret = pthread_cond_timedwait(&ctx->work_ready_cond, &ctx->cond_mutex, &wait_time);
+			UNLOCK_MUTEX(&ctx->cond_mutex);
 #endif
 			
+			LOCK_MUTEX(&thread->mutex);
 
 			if (!thread->keep_running) {
 			  	DEBUG_MSG("thread %d stopping\n",thread->thread_num);
@@ -391,10 +401,13 @@ static void * _workqueue_job_scheduler(void *data)
 			if (ret == ETIMEDOUT) {
 			  	DEBUG_MSG("thread %d idle timeout lock\n",thread->thread_num);
 			  	continue; /* wait again */
+			} else if (ret == EINVAL) {
+				ERROR_MSG("thread %d pthread_cond_timedwait EINVAL\n");
+				usleep(wait_ms); // wait 1000th of time wait
 			} else if (ret) {
 				ERROR_MSG("thread %d pthread_cond_timedwait ret =%d\n", thread->thread_num, ret);
-				continue;
 			}
+
 #endif
 		}
 	}
@@ -475,6 +488,7 @@ void workqueue_destroy(struct workqueue_ctx *ctx)
 	//FIXME test this
 	#else
 	pthread_mutex_destroy(&ctx->mutex);
+	pthread_mutex_destroy(&ctx->cond_mutex);
 	#endif
 
 	free(ctx);
@@ -486,7 +500,8 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
   	unsigned int i;
 	struct workqueue_ctx *ctx;
 	struct workqueue_thread *thread;
-	
+	int ret = 0;
+
 	DEBUG_MSG("Starting queue_size=%d\n", queue_size);
 
 	/* check for invalid args */
@@ -499,8 +514,16 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 	ctx->queue_size = queue_size;
 #ifdef WINDOWS
 	InitializeCriticalSection(&ctx->mutex);
+	InitializeCriticalSection(&ctx->cond_mutex);
 #else
-	pthread_mutex_init(&ctx->mutex, NULL);
+	ret = pthread_mutex_init(&ctx->mutex, NULL);
+	if (ret)
+		ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
+
+	ret = pthread_mutex_init(&ctx->cond_mutex, NULL);
+	if (ret)
+		ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
+
 #endif
 	/* Allocate pointers for queue */
 	ctx->queue = (struct workqueue_job **) calloc( queue_size + 1, sizeof(struct workqueue_job *));
@@ -524,7 +547,9 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 
 
 #else
-	pthread_cond_init(&ctx->work_ready_cond, NULL);
+	ret = pthread_cond_init(&ctx->work_ready_cond, NULL);
+	if (ret)
+		ERROR_MSG("pthread_cond_init failed ret=%d\n", ret);
 #endif
 	ctx->num_worker_threads = num_worker_threads;
 	
@@ -538,7 +563,7 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 		thread->keep_running = true;
 #ifdef WINDOWS
 		InitializeCriticalSection(&thread->mutex);
-		
+
 		thread->thread_id = CreateThread( 
                      NULL,       // default security attributes
                      0,          // default stack size
@@ -549,7 +574,14 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 
 #else
 		pthread_mutex_init(&thread->mutex, NULL);
+		if (ret)
+			ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
+
 		pthread_create(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
+
+		if (ret)
+			ERROR_MSG("pthread_create failed ret=%d\n", ret);
+
 #endif
 	}
 	 
@@ -578,7 +610,7 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 		unsigned int miliseconds,
 		workqueue_func_t callback_fn, void *data)
 {
-  	int i;
+	int i;
 	int ret;
 	struct workqueue_job *job = NULL;
 	struct TIME_STRUCT_TYPE sched_time;
@@ -605,10 +637,19 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 #ifdef WINDOWS
 			job->start_time.time += miliseconds / 1000;
 			job->start_time.millitm += miliseconds % 1000;
+			if (job->start_time.millitm > 1000) {
+				job->start_time.millitm -= 1000;
+				job->start_time.time += 1000;
 
+			}
 #else
 			job->start_time.tv_sec += miliseconds / 1000;
 			job->start_time.tv_nsec += (miliseconds % 1000) * 1000000;
+			if (job->start_time.tv_nsec > 1000000000) {
+				job->start_time.tv_nsec -= 1000000000;
+				job->start_time.tv_sec +=1;
+			}
+			DEBUG_MSG("Start time sec=%d  nsec=%ld\n", job->start_time.tv_sec, job->start_time.tv_nsec);
 #endif
 		} /* else the start_time will be 0, so start ASAP */
 
