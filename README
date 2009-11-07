@@ -2,14 +2,17 @@
 
 This library is a priority work queue scheduler.
 
-Possible applications of this library is prioritizing, queueing, and/or scheduling:
+Possible applications of this library is prioritizing, queuing, and/or scheduling:
 
-* A synchronous database API
+* Queue, parallelize, and/or schedule transactions to a synchronous database API.
 * Hardware I/O to a device where commands must be queued.
 * Periodic work that must be scheduled every X period for example:
 	* A software watchdog to check that your system is OK.
 	* A periodic check of network I/O
 	* a cron job scheduler
+* If you have many threads that spend most of the time sleeping or blocked,
+	use libworkqueue to reduce the number of threads and to queue the jobs.
+	The result may be a lower memory footprint by a lower number of threads.
 
 **** Linux/UNIX ****
 Dependencies to compile:
