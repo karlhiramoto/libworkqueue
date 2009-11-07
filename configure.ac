@@ -42,6 +42,7 @@ AC_CONFIG_FILES([Makefile
 		examples/serial_port_test/Makefile
 		examples/simple_test/Makefile
 		examples/simple_cpp/Makefile
+		examples/time_sort/Makefile
 		examples/periodic_test/Makefile
 
 		])
