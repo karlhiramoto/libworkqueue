@@ -709,7 +709,14 @@ int workqueue_show_status(struct workqueue_ctx* ctx, FILE *fp)
 		if (!ctx->queue[i])
 			continue; /* unused location */
 
-		time_ms = time_diff_ms(&ctx->queue[i]->start_time, &now_time);
+		if (TIME_SEC(ctx->queue[i]->start_time) ||
+			TIME_MSEC(ctx->queue[i]->start_time)) {
+			// has been scheduled for a time in the future.
+			time_ms = time_diff_ms(&ctx->queue[i]->start_time, &now_time);
+		} else {
+			// will run ASAP
+			time_ms = 0;
+		}
 
 		fprintf(fp,"%3d | %8d | %4d | %6lld ms\n", i,
 			ctx->queue[i]->job_id,
