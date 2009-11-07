@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 			workqueue_job_queued_or_running(prg.ctx, i));
 	}
 
-	for (i = 20; i && (ret = workqueue_get_queue_len(prg.ctx)) > 5; i--) {
+	for (i = 90; i && (ret = workqueue_get_queue_len(prg.ctx)) > 3; i--) {
 		printf("waiting for %d jobs \n", ret);
 		sleep(1);
 	}
