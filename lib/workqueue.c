@@ -402,7 +402,7 @@ static void * _workqueue_job_scheduler(void *data)
 			  	DEBUG_MSG("thread %d idle timeout lock\n",thread->thread_num);
 			  	continue; /* wait again */
 			} else if (ret == EINVAL) {
-				ERROR_MSG("thread %d pthread_cond_timedwait EINVAL\n");
+				ERROR_MSG("thread %d pthread_cond_timedwait EINVAL\n", thread->thread_num);
 				usleep(wait_ms); // wait 1000th of time wait
 			} else if (ret) {
 				ERROR_MSG("thread %d pthread_cond_timedwait ret =%d\n", thread->thread_num, ret);
@@ -695,18 +695,25 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 int workqueue_show_status(struct workqueue_ctx* ctx, FILE *fp)
 {
 	int i;
+	long long time_ms;
+	struct TIME_STRUCT_TYPE now_time;
+	GET_TIME(now_time);
 
 	LOCK_MUTEX(&ctx->mutex);
-
 	fprintf(fp, "Number of worker threads=%d \n", ctx->num_worker_threads);
 	fprintf(fp, "Total jobs added=%d queue_size=%d waiting_jobs=%d \n", ctx->job_count, ctx->queue_size, ctx->waiting_jobs);
-	fprintf(fp, "\n---------\n");
-	fprintf(fp, "%3s | %8s | %4s\n", "Qi", "JobID", "Pri" );
+	fprintf(fp, "\n");
+	fprintf(fp, "%3s | %8s | %4s | %6s ms\n", "Qi", "JobID", "Pri", "Time" );
+	fprintf(fp, "---------------------------------\n");
 	for (i = 0; i < ctx->queue_size; i++) {
 		if (!ctx->queue[i])
 			continue; /* unused location */
 
-		fprintf(fp,"%3d | %8d | %4d \n", i, ctx->queue[i]->job_id, ctx->queue[i]->priority);
+		time_ms = time_diff_ms(&ctx->queue[i]->start_time, &now_time);
+
+		fprintf(fp,"%3d | %8d | %4d | %6lld ms\n", i,
+			ctx->queue[i]->job_id,
+			ctx->queue[i]->priority, time_ms);
 	}
 
 	UNLOCK_MUTEX(&ctx->mutex);
