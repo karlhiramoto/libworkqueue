@@ -637,17 +637,18 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 #ifdef WINDOWS
 			job->start_time.time += miliseconds / 1000;
 			job->start_time.millitm += miliseconds % 1000;
+			// if milili sec overflow carry over to a second.
 			if (job->start_time.millitm > 1000) {
 				job->start_time.millitm -= 1000;
-				job->start_time.time += 1000;
-
+				job->start_time.time += 1;
 			}
 #else
 			job->start_time.tv_sec += miliseconds / 1000;
 			job->start_time.tv_nsec += (miliseconds % 1000) * 1000000;
+			// if nano sec overflow carry over to a second.
 			if (job->start_time.tv_nsec > 1000000000) {
 				job->start_time.tv_nsec -= 1000000000;
-				job->start_time.tv_sec +=1;
+				job->start_time.tv_sec += 1;
 			}
 			DEBUG_MSG("Start time sec=%d  nsec=%ld\n", job->start_time.tv_sec, job->start_time.tv_nsec);
 #endif
