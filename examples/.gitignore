@@ -6,3 +6,4 @@ periodic_test/periodic_test
 serial_port_test/serial_port_test
 simple_cpp/simple
 simple_test/simple_test
+time_sort/time_sort
