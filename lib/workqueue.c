@@ -34,7 +34,8 @@
 
 #define assert(x)
 #define ENOMEM ERROR_NOT_ENOUGH_MEMORY
-#define EBUSY ERROR_BUSY
+#define EBUSY  ERROR_BUSY
+#define ENOENT ERROR_NOT_FOUND
 
 #define ERROR_MSG(fmt, ...) { printf("%s:%d " fmt, __FUNCTION__, __LINE__, __VA_ARGS__); }
 
@@ -42,6 +43,7 @@
 #define TIME_STRUCT_TYPE _timeb
 
 #define LOCK_MUTEX(mutex)	WaitForSingleObject(mutex,INFINITE)
+#define TRY_LOCK_MUTEX(mutex, r)  r = WaitForSingleObject(mutex,0);
 #define UNLOCK_MUTEX(x)	ReleaseMutex(x)
 #define pthread_join(A,B) \
   ((WaitForSingleObject((A), INFINITE) != WAIT_OBJECT_0) || !CloseHandle(A))
@@ -750,9 +752,13 @@ static int _is_job_running(struct workqueue_ctx* ctx, int job_id)
 	for (i = 0; i < ctx->num_worker_threads && !ret; i++) {
 		if (ctx->thread[i]) {
 			TRY_LOCK_MUTEX(&ctx->thread[i]->mutex, rc);
+#ifdef WINDOWS
+			if (rc)
+				return -EBUSY;
+#else
 			if (rc == EBUSY)
 				return -EBUSY;
-
+#endif
 			if (ctx->thread[i]->job && ctx->thread[i]->job->job_id == job_id) {
 				ret = 1;
 			}
