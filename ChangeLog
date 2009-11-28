@@ -1,3 +1,9 @@
+Version 0.5
+	* Fix bug with start time nano/mili seconds overflow.
+	* Fix pthread_cond_timedwait() to only use one mutex to lock condition variable
+	* workqueue_show_status() now shows scheduled time
+	* windows fixes
+
 Version 0.4
 	* New functions workqueue_empty() and workqueue_empty_wait()
 	  Will empty the Queue, and if wanted wait for any running job.
