@@ -149,6 +149,9 @@ struct workqueue_ctx
 	pthread_mutex_t mutex; /** used to lock this struct */
 	pthread_cond_t work_ready_cond; /** used to signal waiting threads that new work is ready */
 	pthread_mutex_t cond_mutex; /** used to lock condition variable*/
+	int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
+				void *(*)(void *), void *);
+				
 #endif
 	int num_worker_threads; /** Number of worker threads this context has */
 	int job_count; /** starts at 0 and goes to 2^31 then back to 0 */
@@ -329,6 +332,7 @@ static void * _workqueue_job_scheduler(void *data)
 	int ret;
 	long long wait_ms = 1000;
 
+	DEBUG_MSG("starting data=%p\n", data);
 	assert(thread);
 	ctx = thread->ctx;
 	DEBUG_MSG("thread %d starting\n",thread->thread_num);
@@ -497,98 +501,97 @@ void workqueue_destroy(struct workqueue_ctx *ctx)
 
 }
 
-struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_worker_threads)
+static struct workqueue_ctx *
+__workqueue_init(struct workqueue_ctx *ctx, unsigned int queue_size, unsigned int num_worker_threads)
 {
-  	unsigned int i;
-	struct workqueue_ctx *ctx;
+	unsigned int i;
 	struct workqueue_thread *thread;
 	int ret = 0;
-
-	DEBUG_MSG("Starting queue_size=%d\n", queue_size);
-
-	/* check for invalid args */
-	if (!queue_size || !num_worker_threads)
-	  	return NULL;
-
-	ctx = (struct workqueue_ctx *) calloc(1, sizeof (struct workqueue_ctx));
+	
 	if (!ctx)
 		return NULL;
 	ctx->queue_size = queue_size;
-#ifdef WINDOWS
+	#ifdef WINDOWS
 	InitializeCriticalSection(&ctx->mutex);
 	InitializeCriticalSection(&ctx->cond_mutex);
-#else
+	#else
 	ret = pthread_mutex_init(&ctx->mutex, NULL);
 	if (ret)
 		ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
-
+	
 	ret = pthread_mutex_init(&ctx->cond_mutex, NULL);
 	if (ret)
 		ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
-
-#endif
+	
+	#endif
 	/* Allocate pointers for queue */
 	ctx->queue = (struct workqueue_job **) calloc( queue_size + 1, sizeof(struct workqueue_job *));
 	if (!ctx->queue) {
 		goto free_ctx;
 	}
-
+	
 	/* Allocate pointers for threads */
 	ctx->thread = (struct workqueue_thread **) calloc( num_worker_threads + 1, sizeof(struct workqueue_thread *));
 	if (!ctx->thread)
-	  	goto free_queue;
-
-#ifdef WINDOWS
+		goto free_queue;
+	
+	#ifdef WINDOWS
 	// Condition variable only work on vista and newer
-//	InitializeConditionVariable(&ctx->work_ready_cond);
-
+	//	InitializeConditionVariable(&ctx->work_ready_cond);
+	
 	ctx->work_ready_cond = CreateEvent (NULL,  // no security
-					FALSE, // auto-reset event
-					FALSE, // non-signaled initially
-					NULL); // unnamed
-
-
-#else
+					    FALSE, // auto-reset event
+					    FALSE, // non-signaled initially
+					    NULL); // unnamed
+	
+	
+	#else
 	ret = pthread_cond_init(&ctx->work_ready_cond, NULL);
 	if (ret)
 		ERROR_MSG("pthread_cond_init failed ret=%d\n", ret);
-#endif
+	#endif
 	ctx->num_worker_threads = num_worker_threads;
 	
 	for (i = 0; i < num_worker_threads; i++) {
-	  	ctx->thread[i] = thread = (struct workqueue_thread *) calloc ( 1, sizeof(struct workqueue_thread));
-	  	if (!ctx->thread[i]) {
+		ctx->thread[i] = thread = (struct workqueue_thread *) calloc ( 1, sizeof(struct workqueue_thread));
+		if (!ctx->thread[i]) {
 			goto free_threads;
 		}
 		thread->thread_num = i;
 		thread->ctx = ctx;  /* point to parent */
 		thread->keep_running = true;
-#ifdef WINDOWS
+		#ifdef WINDOWS
 		InitializeCriticalSection(&thread->mutex);
-
-		thread->thread_id = CreateThread( 
-                     NULL,       // default security attributes
-                     0,          // default stack size
-                     (LPTHREAD_START_ROUTINE) _workqueue_job_scheduler, 
-                     thread,       // data passed to thread
-                     0,          // default creation flags
-                     NULL); // receive thread identifier
-
-#else
+		
+		thread->thread_id = CreateThread(
+		NULL,       // default security attributes
+						 0,          // default stack size
+						 (LPTHREAD_START_ROUTINE) _workqueue_job_scheduler,
+						 thread,       // data passed to thread
+						 0,          // default creation flags
+						 NULL); // receive thread identifier
+		
+		#else
 		pthread_mutex_init(&thread->mutex, NULL);
 		if (ret)
 			ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
 
-		pthread_create(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
-
+		DEBUG_MSG("here\n");
+ 		if (ctx->pthread_create_wrapper) {
+			DEBUG_MSG("starting thread wrapper\n");
+			ctx->pthread_create_wrapper(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
+			DEBUG_MSG("thread launched\n");
+		} else {
+			pthread_create(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
+		}
 		if (ret)
 			ERROR_MSG("pthread_create failed ret=%d\n", ret);
-
-#endif
+		
+		#endif
 	}
-	 
+	
 	return ctx;
-
+	
 	/* error cases to clean up for*/
 	free_threads:
 	
@@ -597,7 +600,7 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 			free(ctx->thread[i]);
 		}
 	}
-
+	
 	free_queue:
 	free(ctx->queue);
 	
@@ -607,6 +610,43 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 	return NULL;
 }
 
+struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_worker_threads)
+{
+	struct workqueue_ctx *ctx;
+
+	DEBUG_MSG("Starting queue_size=%d\n", queue_size);
+
+	/* check for invalid args */
+	if (!queue_size || !num_worker_threads)
+	  	return NULL;
+
+	ctx = (struct workqueue_ctx *) calloc(1, sizeof (struct workqueue_ctx));
+
+	return __workqueue_init(ctx, queue_size, num_worker_threads);
+}
+
+#ifndef WINDOWS
+struct workqueue_ctx * workqueue_init_pth_wapper(unsigned int queue_size, unsigned int num_worker_threads,
+	 int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
+	       void *(*)(void *), void *))
+{
+	struct workqueue_ctx *ctx;
+	
+	DEBUG_MSG("Starting queue_size=%d\n", queue_size);
+	
+	/* check for invalid args */
+	if (!queue_size || !num_worker_threads)
+		return NULL;
+
+	ctx = (struct workqueue_ctx *) calloc(1, sizeof (struct workqueue_ctx));
+
+	DEBUG_MSG("Set wrapper=%p\n", pthread_create_wrapper);
+	ctx->pthread_create_wrapper = pthread_create_wrapper;
+
+	return __workqueue_init(ctx, queue_size, num_worker_threads);
+}
+
+#endif
 
 int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 		unsigned int miliseconds,
