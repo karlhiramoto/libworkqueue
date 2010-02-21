@@ -125,7 +125,16 @@ int workqueue_empty(struct workqueue_ctx *ctx);
  */
 int workqueue_empty_wait(struct workqueue_ctx *ctx);
 
-
+#if !defined(_WIN32) && !defined(__WIN32__) && !defined(WIN32)
+/**
+* @fn workqueue_init_pth_wapper
+* @brief to be used instead of workqueue_init, to be used to install a pthread_create wrapper
+* @returns number of entries removed  or -errno
+*/
+struct workqueue_ctx * workqueue_init_pth_wapper(unsigned int queue_size, unsigned int num_worker_threads,
+	int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
+	void *(*)(void *), void *));
+#endif
 
 #ifdef  __cplusplus
 }
