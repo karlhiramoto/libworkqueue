@@ -44,7 +44,7 @@ AC_CONFIG_FILES([Makefile
 		examples/simple_cpp/Makefile
 		examples/time_sort/Makefile
 		examples/periodic_test/Makefile
-
+		examples/pthread_wrap_ex/Makefile
 		])
 
 
