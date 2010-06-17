@@ -49,6 +49,7 @@ compile
 configure
 depcomp
 install-sh
+INSTALL
 lib/libworkqueue.la
 lib/workqueue.lo
 libtool
