@@ -45,7 +45,7 @@ return rc;
 
 /* internal thread entry wrapper information */
 typedef struct {
-	void *(*entry)(void *);
+	void *(*entry)(void *); /* start function */
 	void *arg;
 } pthread_create_ex_t;
 
