@@ -83,7 +83,9 @@ int pthread_create_ex(pthread_t *thread,
 	return pthread_create(thread, attr,
 				pthread_create_wrapper, &wrapper);
 }
-#else
+#endif
+
+#if 0
 /* internal thread entry wrapper */
 static void *pthread_create_wrapper(void *arg) {
 	pthread_create_ex_t wrapper;
@@ -116,3 +118,12 @@ pthread_create_ex(pthread_t * thread,
 			      wrapper);
 }
 #endif
+
+void ex_thread_init(void *arg) {
+	ex_ctx_t *ex_ctx;
+
+	ex_ctx = (ex_ctx_t *) calloc(1, sizeof(ex_ctx_t));
+	EX_CTX_INITIALIZE(ex_ctx);
+	pthread_setspecific(pthread_ex_ctx_key, ex_ctx);
+}
+

@@ -450,7 +450,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	prg.ctx = workqueue_init(32, 1);
+	prg.ctx = workqueue_init(32, 1, NULL);
 	
 
 	ret = open_port (&prg, argv[1]);

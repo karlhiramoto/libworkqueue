@@ -16,32 +16,47 @@
 #include <pthread.h>
 #include "workqueue.h"
 #include "pthread_ex.h"
+#include "ex.h"
 
 static struct workqueue_ctx *ctx = NULL;
 
+static struct worker_thread_ops ops = {
+	.worker_constructor = ex_thread_init,
+	.data = NULL,
+};
 
 void callback_func(void *data)
 {
 	int *counter = (int*) data;
 	int ret = 0;
-	(*counter)++;
-	printf("starting callback\n");
+	ex_t ex;
 	
-	
-	printf("counter=%d job ret=%d\n",*counter, ret);
-	/* NOTE This kind of function to do polling every X ammount of time */
+	ex_try {
+		(*counter)++;
+		printf("starting callback\n");
 
-	/* reschedule myself */
-	if (*counter < 80)
-		ret = workqueue_add_work(ctx, 2, 1678,
-			callback_func, counter);
 
-	if (ret >= 0) {
-		printf("Added job %d \n", ret);
-	} else {
-		printf("Error adding job err=%d\n", ret);
+		printf("counter=%d job ret=%d\n",*counter, ret);
+		/* NOTE This kind of function to do polling every X ammount of time */
+
+		/* reschedule myself */
+		if (*counter < 80) {
+			ret = workqueue_add_work(ctx, 2, 1678,
+				callback_func, counter);
+		} else {
+			ex_throw(NULL, callback_func, data);
+		}
+
+		if (ret >= 0) {
+			printf("Added job %d \n", ret);
+		} else {
+			printf("Error adding job err=%d\n", ret);
+		}
+	} ex_catch(ex) {
+		printf("caught exception at %s:%d", ex.ex_func, ex.ex_line);
+		ex_rethrow;
 	}
-
+	
 }
 
 int main(int argc, char *argv[]) {
@@ -51,7 +66,7 @@ int main(int argc, char *argv[]) {
 	int ret;
 	printf("starting\n");
 	pthread_init_ex();
-	ctx = workqueue_init_pth_wapper(32, 1, pthread_create_ex);
+	ctx = workqueue_init(32, 1, &ops);
 
 	ret = workqueue_add_work(ctx, 2, 12000,
 		callback_func, &counter);
