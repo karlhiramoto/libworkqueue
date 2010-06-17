@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 	int ret;
 	printf("starting\n");
 	prg.counter = 0;
-	prg.ctx = workqueue_init(32, 1);
+	prg.ctx = workqueue_init(32, 1, NULL);
 
 	for (i = num_jobs; i ; i--) {
 		ret = workqueue_add_work(prg.ctx, 2, i*1234,

@@ -149,10 +149,8 @@ struct workqueue_ctx
 	pthread_mutex_t mutex; /** used to lock this struct */
 	pthread_cond_t work_ready_cond; /** used to signal waiting threads that new work is ready */
 	pthread_mutex_t cond_mutex; /** used to lock condition variable*/
-	int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
-				void *(*)(void *), void *);
-				
 #endif
+	struct worker_thread_ops *ops; /** worker init cleanup functions */
 	int num_worker_threads; /** Number of worker threads this context has */
 	int job_count; /** starts at 0 and goes to 2^31 then back to 0 */
 	int queue_size; /** max number of jobs that can be queued */
@@ -337,7 +335,10 @@ static void * _workqueue_job_scheduler(void *data)
 	ctx = thread->ctx;
 	DEBUG_MSG("thread %d starting\n",thread->thread_num);
 
-
+	if (ctx->ops && ctx->ops->worker_constructor) {
+		DEBUG_MSG("thread %d calling constructor\n",thread->thread_num);
+		ctx->ops->worker_constructor(ctx->ops->data);
+	}
 	LOCK_MUTEX(&thread->mutex);
 
 	while (thread->keep_running) {
@@ -381,7 +382,7 @@ static void * _workqueue_job_scheduler(void *data)
 
 #else
 			DEBUG_MSG("thread %d going idle.  %d sec; %ld nsec\n",
-				thread->thread_num, wait_time.tv_sec, wait_time.tv_nsec);
+					thread->thread_num, (int) wait_time.tv_sec, wait_time.tv_nsec);
 			// note this wait may be a long time, if the system time changes
 			LOCK_MUTEX(&ctx->cond_mutex);
 			ret = pthread_cond_timedwait(&ctx->work_ready_cond, &ctx->cond_mutex, &wait_time);
@@ -420,6 +421,10 @@ static void * _workqueue_job_scheduler(void *data)
 
 	UNLOCK_MUTEX(&thread->mutex);
 
+	if (ctx->ops && ctx->ops->worker_destructor) {
+		DEBUG_MSG("thread %d calling destructor\n",thread->thread_num);
+		ctx->ops->worker_destructor(ctx->ops->data);
+	}
 	return NULL;
 }
 
@@ -576,14 +581,8 @@ __workqueue_init(struct workqueue_ctx *ctx, unsigned int queue_size, unsigned in
 		if (ret)
 			ERROR_MSG("pthread_mutex_init failed ret=%d\n", ret);
 
-		DEBUG_MSG("here\n");
- 		if (ctx->pthread_create_wrapper) {
-			DEBUG_MSG("starting thread wrapper\n");
-			ctx->pthread_create_wrapper(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
-			DEBUG_MSG("thread launched\n");
-		} else {
-			pthread_create(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
-		}
+		ret = pthread_create(&thread->thread_id, NULL, _workqueue_job_scheduler, thread);
+		
 		if (ret)
 			ERROR_MSG("pthread_create failed ret=%d\n", ret);
 		
@@ -610,7 +609,8 @@ __workqueue_init(struct workqueue_ctx *ctx, unsigned int queue_size, unsigned in
 	return NULL;
 }
 
-struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_worker_threads)
+struct workqueue_ctx * workqueue_init(unsigned int queue_size,
+	unsigned int num_worker_threads, struct worker_thread_ops *ops)
 {
 	struct workqueue_ctx *ctx;
 
@@ -621,11 +621,12 @@ struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_
 	  	return NULL;
 
 	ctx = (struct workqueue_ctx *) calloc(1, sizeof (struct workqueue_ctx));
-
+	ctx->ops = ops;
 	return __workqueue_init(ctx, queue_size, num_worker_threads);
 }
 
-#ifndef WINDOWS
+#if 0
+
 struct workqueue_ctx * workqueue_init_pth_wapper(unsigned int queue_size, unsigned int num_worker_threads,
 	 int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
 	       void *(*)(void *), void *))
@@ -692,7 +693,8 @@ int workqueue_add_work(struct workqueue_ctx* ctx, int priority,
 				job->start_time.tv_nsec -= 1000000000;
 				job->start_time.tv_sec += 1;
 			}
-			DEBUG_MSG("Start time sec=%d  nsec=%ld\n", job->start_time.tv_sec, job->start_time.tv_nsec);
+			DEBUG_MSG("Start time sec=%d  nsec=%ld\n",
+				(int) job->start_time.tv_sec, job->start_time.tv_nsec);
 #endif
 		} /* else the start_time will be 0, so start ASAP */
 

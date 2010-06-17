@@ -20,17 +20,40 @@ extern "C" {
 /* forward declaration for struct workqueue_ctx*/
 struct workqueue_ctx;
 
-/*callback function format */
+/** callback function format for each work task */
 typedef void (*workqueue_func_t)(void *data);
+
+struct worker_thread_ops
+{
+	/**
+	* Optional callback to init/allocate any private data.
+	* This is called once on initialization of each worker thread
+	*/
+	void (*worker_constructor)(void *data);
+	
+	/**
+	* Optional callback to free/cleanup any private data, allocated by
+	* worker_create this will be called before the worker thread exits
+	* this is only called when workqueue_destroy() is called
+	*/
+	void (*worker_destructor)(void *data);
+	
+	/** optional data that may be passed to constructor/destructor */
+	void *data;
+};
 
 /**
  * @fn struct workqueue_ctx* workqueue_init(unsigned int queue_size, unsigned int num_worker_threads);
  * @brief Initialize work context
  * @param queue_size size of queue.  Maximum number of jobs you can queue.
  * @param num_worker_threads  Number of threads to do the work.
+ * @param worker_thread_ops optional callbacks to initialize and cleanup worker threads
+ *        if this is NULL, no special init/cleanup is done.
  * @returns pointer to context data.  This data is private to the library and may not be used externally.   Free the context with workqueue_destroy
 */
-struct workqueue_ctx* workqueue_init(unsigned int queue_size, unsigned int num_worker_threads);
+
+struct workqueue_ctx * workqueue_init(unsigned int queue_size, unsigned int num_worker_threads,
+		struct worker_thread_ops *ops);
 
 /**
  * @fn workqueue_add_work
@@ -40,7 +63,7 @@ struct workqueue_ctx* workqueue_init(unsigned int queue_size, unsigned int num_w
  * @param when_milisec  milliseconds in the future to schedule. 0 is now.
  * @param callback_fn  function pointer for callback
  * @param data  data to pass to work callback function. 
- * @returns Job ID or  -errno; -EBUSY when queues are full
+ * @returns positive Job ID or negative  -errno; -EBUSY when queues are full
  */
 int workqueue_add_work(struct workqueue_ctx* ctx,
 		int priority, unsigned int when_milisec,
@@ -125,16 +148,13 @@ int workqueue_empty(struct workqueue_ctx *ctx);
  */
 int workqueue_empty_wait(struct workqueue_ctx *ctx);
 
-#if !defined(_WIN32) && !defined(__WIN32__) && !defined(WIN32)
+
 /**
-* @fn workqueue_init_pth_wapper
+* @fn workqueue_init
 * @brief to be used instead of workqueue_init, to be used to install a pthread_create wrapper
 * @returns number of entries removed  or -errno
 */
-struct workqueue_ctx * workqueue_init_pth_wapper(unsigned int queue_size, unsigned int num_worker_threads,
-	int (*pthread_create_wrapper)(pthread_t *, const pthread_attr_t *,
-	void *(*)(void *), void *));
-#endif
+
 
 #ifdef  __cplusplus
 }
@@ -146,7 +166,7 @@ class work_queue_class
 		struct workqueue_ctx *ctx;
 	public:
 		work_queue_class(unsigned int queue_size, unsigned int num_worker_threads) {
-			ctx = workqueue_init(queue_size, num_worker_threads);
+			ctx = workqueue_init(queue_size, num_worker_threads, NULL);
 		}
 
 		~work_queue_class(void) {

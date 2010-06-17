@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 	int i;
 	int ret;
 	printf("starting\n");
-	ctx = workqueue_init(32, 1);
+	ctx = workqueue_init(32, 1, NULL);
 
 	ret = workqueue_add_work(ctx, 2, 2000,
 		callback_func, &counter);
