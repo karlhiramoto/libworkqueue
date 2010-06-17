@@ -1,6 +1,8 @@
 AC_PREREQ(2.59)
 AC_INIT([libworkqueue priority workqueue scheduler], [0.1], [karl@hiramoto.org])
 
+AC_CONFIG_MACRO_DIR([m4])
+
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_PROG_CC
 AC_PROG_CXX
@@ -32,6 +34,12 @@ AC_LANG([C])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([string])
 
+
+AC_ARG_ENABLE([examples],
+	AS_HELP_STRING([--disable-examples], [don't build example programs]),
+	[enable_examples="$enableval"], [enable_examples="yes"])
+
+AM_CONDITIONAL([ENABLE_EXAMPLES], [test "$enable_examples" = "yes"])
 
 
 AC_CONFIG_FILES([Makefile
