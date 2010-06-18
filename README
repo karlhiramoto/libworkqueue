@@ -20,7 +20,14 @@ Possible applications of this library is prioritizing, queuing, and/or schedulin
 * If you have other threads and wich to serialize operations you may use libworkqueue
 	to make a FIFO or priority queue. 
 
+* A thread pool.  Send work tasks to the pool.
+
+
 **** Linux/UNIX ****
+Help on Configure options 
+	./autogen.sh
+	./configure --help
+
 Dependencies to compile:
 	* C compiler
 	* libtool, autoconf, automake (gnu auto tools)
