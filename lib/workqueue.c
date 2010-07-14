@@ -982,7 +982,6 @@ int workqueue_empty_wait(struct workqueue_ctx *ctx)
 	int count;
 	int i;
 	int num_workers = ctx->num_worker_threads;
-	int ret;
 
 	LOCK_MUTEX(&ctx->mutex);
 	count = _empty_queue(ctx);
