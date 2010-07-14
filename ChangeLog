@@ -1,3 +1,7 @@
+Version 0.6
+	* API change workqueue_init() now allows optional arg to initilize worker threads
+	* add version nubmer to library with libtool, N/A on windows.
+	* more examples and documentation
 Version 0.5
 	* Fix bug with start time nano/mili seconds overflow.
 	* Fix pthread_cond_timedwait() to only use one mutex to lock condition variable
