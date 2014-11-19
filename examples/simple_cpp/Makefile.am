@@ -1,5 +1,5 @@
 WORKQUEUE_CXXFLAGS = -pthread -g3 -I../../lib
-WORKQUEUE_LDLAGS = -pthread -lrt -lworkqueue -L../../lib
+WORKQUEUE_LDLAGS =  -lworkqueue -lpthread -lrt -pthread -L../../lib
 
 noinst_bin_PROGRAMS = simple
 noinst_bindir = $(abs_top_builddir)/example_progs
