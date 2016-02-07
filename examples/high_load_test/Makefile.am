@@ -1,7 +1,7 @@
 # TESTS = simple_test periodic_test serial_port_test
 
 WORKQUEUE_CFLAGS = -pthread -g3 -I../../lib
-WORKQUEUE_LDLAGS = -pthread -lrt -lworkqueue -L../../lib
+WORKQUEUE_LDLAGS = -pthread -lworkqueue -lrt -L../../lib
 
 noinst_bin_PROGRAMS = high_load_test
 noinst_bindir = $(abs_top_builddir)/example_progs
