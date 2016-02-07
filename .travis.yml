@@ -4,15 +4,9 @@ compiler:
 env:
   # Default build. Release.
   - BUILD_ARGS=""
-  # Build using OpenSSL Libary for MD5/SHA1 hash functions
-  - BUILD_ARGS="--with-openssl"
-  # Build with gcov code coverage
-  - BUILD_ARGS="--enable-gcov"
-# gcov code coverage only works with gcc, so don't run it with clang.
-#matrix:
-#  exclude:
-#    - compiler: clang
-#      env: BUILD_ARGS="--enable-gcov"
+  # Build without example test programs
+  - BUILD_ARGS="--disable-examples"
+
 #before_install:
 #  - sudo apt-get update -qq
 #  - sudo apt-get install automake1.9
