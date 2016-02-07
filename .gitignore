@@ -9,7 +9,6 @@
 #
 # Normal rules
 #
-.*
 *.o
 *.o.*
 *.a
@@ -58,6 +57,26 @@ libworkqueue-config.h.in
 ltmain.sh
 missing
 stamp-h1
+
+ar-lib
+examples/high_load_test/.deps/
+examples/high_load_test/.libs/
+examples/job_control/.deps/
+examples/job_control/.libs/
+examples/periodic_test/.deps/
+examples/periodic_test/.libs/
+examples/pthread_wrap_ex/.deps/
+examples/pthread_wrap_ex/.libs/
+examples/serial_port_test/.deps/
+examples/serial_port_test/.libs/
+examples/simple_cpp/.deps/
+examples/simple_cpp/.libs/
+examples/simple_test/.deps/
+examples/simple_test/.libs/
+examples/time_sort/.deps/
+examples/time_sort/.libs/
+lib/.deps/
+lib/.libs/
 
 
 example_progs
