@@ -1,4 +1,7 @@
-* libWorkQueue
+# libWorkQueue
+
+[![Build Status](https://travis-ci.org/karlhiramoto/libworkqueue.svg)](http://travis-ci.org/karlhiramoto/libworkqueue)
+
 
 This library is a priority work queue scheduler.
 
@@ -23,28 +26,38 @@ Possible applications of this library is prioritizing, queuing, and/or schedulin
 * A thread pool.  Send work tasks to the pool.
 
 
-**** Linux/UNIX ****
+### Linux/UNIX 
 Help on Configure options 
+```
 	./autogen.sh
 	./configure --help
+```
 
 Dependencies to compile:
 	* C compiler
 	* libtool, autoconf, automake (gnu auto tools)
 
 To compile library:
+```
 	./autogen.sh
 	./configure
 	make
+```
 
 To compile examples:
-	make examples
+```
+make examples
+```
 
 To install:
-	make install
+```
+make install
+```
 
 To build doxygen documentation graphvis is required:
-	make doxygen-doc
+```
+make doxygen-doc
+```
 
-* MS windows 
-	Tested on Windows XP SP3 with MS Visual C++ 2008 Express Edition.  Load solution libworkqueue.sln
+## MS windows 
+ * Tested on Windows XP SP3 with MS Visual C++ 2008 Express Edition.  Load solution libworkqueue.sln
