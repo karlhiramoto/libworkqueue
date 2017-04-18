@@ -42,9 +42,9 @@
 #define GET_TIME(x) _ftime_s(&x)
 #define TIME_STRUCT_TYPE _timeb
 
-#define LOCK_MUTEX(mutex)	WaitForSingleObject(mutex,INFINITE)
-#define TRY_LOCK_MUTEX(mutex, r)  r = WaitForSingleObject(mutex,0);
-#define UNLOCK_MUTEX(x)	ReleaseMutex(x)
+#define LOCK_MUTEX(mutex)	EnterCriticalSection(mutex)
+#define TRY_LOCK_MUTEX(mutex, r)  r = TryEnterCriticalSection(mutex);
+#define UNLOCK_MUTEX(x)	LeaveCriticalSection(x)
 #define pthread_join(A,B) \
   ((WaitForSingleObject((A), INFINITE) != WAIT_OBJECT_0) || !CloseHandle(A))
 
@@ -379,7 +379,7 @@ static void * _workqueue_job_scheduler(void *data)
 
 #ifdef WINDOWS
 			DEBUG_MSG("thread %d going idle\n",thread->thread_num);
-			ret = WaitForSingleObject(&ctx->work_ready_cond, (DWORD) wait_ms);
+			ret = WaitForSingleObject(ctx->work_ready_cond, (DWORD) wait_ms);
 
 #else
 			DEBUG_MSG("thread %d going idle.  %d sec; %ld nsec\n",
@@ -568,6 +568,7 @@ __workqueue_init(struct workqueue_ctx *ctx, unsigned int queue_size, unsigned in
 		thread->keep_running = true;
 		#ifdef WINDOWS
 		InitializeCriticalSection(&thread->mutex);
+        InitializeCriticalSection(&thread->job_mutex);
 
 		thread->thread_id = CreateThread(
 		NULL,       // default security attributes
